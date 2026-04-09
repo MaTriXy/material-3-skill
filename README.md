@@ -2,6 +2,8 @@
 
 A comprehensive [Claude Code](https://claude.ai/claude-code) skill for implementing Google's [Material Design 3](https://m3.material.io/) (Material You) UI system.
 
+[![Material Design 3](assets/m3-hero.png)](https://m3.material.io/)
+
 ## Table of contents
 
 - [What it does](#what-it-does)

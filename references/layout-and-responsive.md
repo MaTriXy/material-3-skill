@@ -293,14 +293,16 @@ For component-level responsive behavior (independent of viewport), use container
 
 Components transform across breakpoints:
 
-| Component | Compact | Medium | Expanded+ |
+| Component | Compact | Medium (incl. foldable unfolded) | Expanded+ / Large screen |
 |-----------|---------|--------|-----------|
 | Navigation | Bottom bar | Side rail | Side drawer |
 | App bar | Small (64dp) | Small (64dp) | Small or Medium (112dp) |
-| Dialog | Full-screen | Centered dialog | Centered dialog |
+| Dialog | Full-screen | Centered dialog | Centered dialog (max 560dp wide) |
 | Bottom sheet | Full height | Partial height | Side sheet |
 | Search | Full-screen search view | Persistent search bar | Persistent search bar |
-| Cards | Full-width single column | Multi-column grid | Multi-column grid |
+| Cards | Full-width single column | Multi-column grid | Multi-column grid (max 4 cols) |
+| Content panes | Single pane | Optional second pane | Two or three panes |
+| Input method | Touch only | Touch + stylus | Touch + mouse/trackpad + keyboard |
 
 ## Complete App Layout Example
 
@@ -371,6 +373,303 @@ Components transform across breakpoints:
   }
 }
 ```
+
+## Foldables and Large Screens
+
+MD3 provides specific guidance for foldable devices, tablets, and large-screen form factors. These are first-class targets in Material Design 3 — not afterthoughts.
+
+### Foldable Postures
+
+Foldable devices introduce postures that don't exist on traditional phones:
+
+| Posture | Description | Layout behavior |
+|---------|-------------|----------------|
+| **Flat (unfolded)** | Device fully open, single large screen | Treat as Medium or Expanded window class based on width |
+| **Half-opened (tabletop)** | Folded ~90° horizontally, bottom half on table | Split content at the hinge — video/image on top half, controls/info on bottom half |
+| **Half-opened (book)** | Folded ~90° vertically, held like a book | Split content at the hinge — list on one side, detail on the other |
+| **Folded** | Device closed, outer/cover screen | Treat as Compact — show essential content only |
+
+### Hinge-Aware Layouts
+
+The fold/hinge is a physical divider. Never place interactive content or critical information across the hinge area.
+
+**Web — CSS Viewport Segments API:**
+
+```css
+/* Detect a dual-screen / foldable device with two horizontal segments */
+@media (horizontal-viewport-segments: 2) {
+  .md3-list-detail {
+    flex-direction: row;
+  }
+  .md3-list-detail__list {
+    /* Span the left segment */
+    width: env(viewport-segment-width 0 0);
+    margin-right: env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px);
+  }
+  .md3-list-detail__detail {
+    flex: 1;
+  }
+}
+
+/* Detect tabletop posture (two vertical segments) */
+@media (vertical-viewport-segments: 2) {
+  .md3-media-player {
+    display: flex;
+    flex-direction: column;
+  }
+  .md3-media-player__video {
+    height: env(viewport-segment-height 0 0);
+  }
+  .md3-media-player__controls {
+    flex: 1;
+  }
+}
+```
+
+**Flutter — `MediaQuery` and display features:**
+
+```dart
+Widget build(BuildContext context) {
+  final displayFeatures = MediaQuery.of(context).displayFeatures;
+  final hinge = displayFeatures.whereType<DisplayFeature>().where(
+    (f) => f.type == DisplayFeatureType.hinge || f.type == DisplayFeatureType.fold,
+  ).firstOrNull;
+
+  if (hinge != null) {
+    // Foldable device — split at the hinge
+    return TwoPane(
+      startPane: ListPane(),
+      endPane: DetailPane(),
+      paneProportion: 0.5,
+      panePriority: isPortrait ? TwoPanePriority.start : TwoPanePriority.both,
+    );
+  }
+
+  // Single screen — use window size class
+  final width = MediaQuery.sizeOf(context).width;
+  if (width < 600) return CompactLayout();
+  if (width < 840) return MediumLayout();
+  return ExpandedLayout();
+}
+```
+
+**Jetpack Compose — `WindowInfoTracker` and `FoldingFeature`:**
+
+```kotlin
+@Composable
+fun AdaptiveLayout() {
+    val windowInfo = WindowInfoTracker.getOrCreate(LocalContext.current)
+        .windowLayoutInfo(LocalContext.current as Activity)
+        .collectAsState(initial = WindowLayoutInfo(emptyList()))
+
+    val foldingFeature = windowInfo.value.displayFeatures
+        .filterIsInstance<FoldingFeature>()
+        .firstOrNull()
+
+    when {
+        foldingFeature != null && foldingFeature.state == FoldingFeature.State.HALF_OPENED -> {
+            // Tabletop or book posture
+            if (foldingFeature.orientation == FoldingFeature.Orientation.HORIZONTAL) {
+                TabletopLayout(foldingFeature)  // top: content, bottom: controls
+            } else {
+                BookLayout(foldingFeature)  // left: list, right: detail
+            }
+        }
+        else -> {
+            // Standard adaptive layout based on window size class
+            val windowSizeClass = calculateWindowSizeClass(LocalContext.current as Activity)
+            StandardAdaptiveLayout(windowSizeClass)
+        }
+    }
+}
+```
+
+### Tabletop Posture Pattern
+
+When the device is in tabletop posture (horizontal fold, bottom half resting on a surface), the content naturally divides into two halves:
+
+```
+┌─────────────────────┐
+│                     │  ← Top half: visual content
+│   Video / Image /   │     (camera viewfinder, video player,
+│   Primary content   │      image gallery, map)
+│                     │
+├─ ─ ─ hinge ─ ─ ─ ─ ┤
+│                     │  ← Bottom half: controls & info
+│  Controls / Text /  │     (playback controls, chat input,
+│  Supporting info    │      product details, toolbar)
+│                     │
+└─────────────────────┘
+```
+
+### Book Posture Pattern
+
+When the device is in book posture (vertical fold, held like a book), it naturally maps to list-detail:
+
+```
+┌──────────┬──────────┐
+│          │          │
+│  List /  │  Detail  │
+│  Nav /   │  Content │
+│  Browse  │  / Edit  │
+│          │          │
+└──────────┴──────────┘
+         hinge
+```
+
+### Large Screen Layout Guidance
+
+For tablets, Chromebooks, desktop, and large foldables (Expanded, Large, Extra-large):
+
+**Content width constraints:**
+- Don't stretch content to fill ultra-wide screens — reading lines longer than ~80 characters become hard to scan
+- Constrain body content to a max width (typically 840–1040dp) and center it
+- Use the extra space for multi-pane layouts, not wider single columns
+
+```css
+/* Constrain content on large screens */
+@media (min-width: 1200px) {
+  .md3-content-area {
+    max-width: 1040px;
+    margin-inline: auto;
+  }
+}
+```
+
+**Multi-pane strategies by window class:**
+
+| Window class | Columns | Recommended layout |
+|-------------|---------|-------------------|
+| Compact (<600dp) | 4 | Single pane. Full-screen navigation between views. |
+| Medium (600–839dp) | 8 | Optional second pane. List-detail with narrow list. Rail navigation. |
+| Expanded (840–1199dp) | 12 | Two panes standard. List-detail or supporting pane. Drawer navigation. |
+| Large (1200–1599dp) | 12 | Two or three panes. Feed with side panel. Persistent supporting pane. |
+| Extra-large (1600dp+) | 12 | Three panes or constrained two-pane with generous margins. |
+
+**Input and interaction differences:**
+- Large screens often have mouse/trackpad input — hover states and right-click menus matter
+- Touch targets remain 48dp minimum but can be supplemented with hover tooltips
+- Keyboard shortcuts become expected on desktop-class devices
+- Drag-and-drop is more natural on large screens
+
+```css
+/* Add hover states for pointer devices */
+@media (hover: hover) {
+  .md3-card:hover {
+    background: color-mix(
+      in srgb,
+      var(--md-sys-color-on-surface) 8%,
+      var(--md-sys-color-surface)
+    );
+  }
+
+  .md3-list-item:hover {
+    background: color-mix(
+      in srgb,
+      var(--md-sys-color-on-surface) 8%,
+      transparent
+    );
+  }
+}
+
+/* Ensure pointer-specific affordances */
+@media (pointer: fine) {
+  /* Scrollbars, resize handles, tighter spacing are acceptable */
+  .md3-drag-handle { cursor: col-resize; }
+}
+```
+
+**Flutter — adaptive input:**
+
+```dart
+Widget build(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  final isLargeScreen = width >= 840;
+
+  return Scaffold(
+    body: Row(
+      children: [
+        // Navigation adapts
+        if (isLargeScreen)
+          NavigationRail(
+            destinations: destinations,
+            selectedIndex: selectedIndex,
+            onDestinationSelected: onSelected,
+            labelType: NavigationRailLabelType.all,
+            leading: FloatingActionButton(
+              onPressed: onCompose,
+              child: const Icon(Icons.edit),
+            ),
+          ),
+        // Content fills remaining space
+        Expanded(
+          child: isLargeScreen
+              ? Row(
+                  children: [
+                    SizedBox(width: 360, child: ListPane()),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: DetailPane()),
+                  ],
+                )
+              : selectedItem == null
+                  ? ListPane()
+                  : DetailPane(),
+        ),
+      ],
+    ),
+    bottomNavigationBar: isLargeScreen
+        ? null
+        : NavigationBar(
+            destinations: destinations.map((d) =>
+              NavigationDestination(icon: d.icon, label: d.label)).toList(),
+            selectedIndex: selectedIndex,
+            onDestinationSelected: onSelected,
+          ),
+  );
+}
+```
+
+### Foldable-Aware Canonical Layouts
+
+The three canonical layouts adapt naturally to foldables:
+
+| Layout | Foldable behavior |
+|--------|------------------|
+| **Feed** | Unfolded: multi-column grid fills both halves. Tabletop: grid on top, selected item preview on bottom. |
+| **List-detail** | Book posture: list on left half, detail on right half — a perfect natural fit. Tabletop: list on top, detail on bottom. |
+| **Supporting pane** | Book posture: primary on left, supporting on right. Tabletop: primary on top, supporting controls on bottom. |
+
+### Testing Large Screens and Foldables
+
+**Web:**
+- Use Chrome DevTools responsive mode to test at 600, 840, 1200, and 1600px breakpoints
+- Test with pointer: coarse (touch) and pointer: fine (mouse) media queries
+- Verify content doesn't stretch beyond readable line lengths at 1600px+
+
+**Flutter:**
+- Use `DevicePreview` package to simulate foldables and tablets
+- Test with `MediaQuery` overrides for `displayFeatures`
+- Run on Android emulators: Pixel Fold, 7.6" foldable, 10" tablet, Chromebook
+
+**Compose:**
+- Use Android Studio foldable emulators (Pixel Fold, 7.6" Foldable)
+- Test posture changes: flat → half-opened → folded
+- Use `WindowInfoTracker` to verify fold-aware layout switching
+
+### Audit Checklist for Foldable/Large Screen Support
+
+When auditing, check these specific items:
+
+- [ ] App uses `MediaQuery.sizeOf(context).width` or equivalent to determine window size class
+- [ ] Layout switches from single-pane to multi-pane at 600dp
+- [ ] Navigation transforms: bottom bar → rail → drawer across breakpoints
+- [ ] Content has max-width constraint on large screens (not stretching to fill)
+- [ ] No critical content or interactive elements placed across a fold/hinge
+- [ ] Foldable postures handled (if targeting foldable devices): tabletop and book modes
+- [ ] Hover states exist for pointer devices (`@media (hover: hover)`)
+- [ ] Touch targets remain 48dp minimum even on large screens
+- [ ] Dialogs are centered (not full-screen) on medium+ screens
+- [ ] Bottom sheets convert to side sheets on expanded+ screens
 
 ## Spacing System
 

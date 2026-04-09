@@ -483,6 +483,8 @@ More patterns: `references/navigation-patterns.md`, `references/layout-and-respo
 - **Use shadows for elevation by default**: MD3 communicates elevation through tonal surface color, not shadows. Only add shadows when elements need extra separation from busy backgrounds.
 - **Apply frontend-design "avoid Roboto" rule**: Roboto Flex is the intended MD3 typeface. It's correct here. Replace it only if intentionally customizing the type scale.
 - **Assume SSR compatibility**: `@material/web` uses Web Components (custom elements) which require JavaScript to render. They won't produce meaningful HTML in SSR without additional hydration strategies.
+- **Ignore foldables and large screens**: MD3 is designed for all screen sizes. Don't ship phone-only layouts — use canonical layouts, multi-pane at 600dp+, and test on foldable/tablet emulators. Place no interactive content across the fold/hinge.
+- **Stretch content to fill wide screens**: On Large (1200dp+) and Extra-large (1600dp+) windows, constrain content to a max width (840–1040dp). Endless-width text lines are unreadable.
 
 ## Platform Notes
 
@@ -544,8 +546,8 @@ When invoked with `audit` as the argument (e.g., `/material-3 audit`), or when a
 | **Shape** | Uses shape tokens for border-radius. Correct token per component (full for buttons, medium for cards). No raw pixel values. |
 | **Elevation** | Tonal surface colors used instead of shadows. Correct elevation levels per component. Hover/focus raises by 1 level. |
 | **Components** | Uses `@material/web` elements or correctly implements MD3 component specs. Correct variants for context. Proper slot usage. |
-| **Layout** | Responsive breakpoints match MD3 (compact/medium/expanded/large/extra-large). Uses canonical layouts where appropriate. Proper margins and spacing. |
-| **Navigation** | Correct nav component for screen size (bar on mobile, rail on tablet, drawer on desktop). Responsive transitions. |
+| **Layout** | Responsive breakpoints match MD3 (compact/medium/expanded/large/extra-large). Uses canonical layouts where appropriate. Proper margins and spacing. Multi-pane layouts on medium+ screens. Content constrained to readable widths on large screens. Foldable hinge avoidance if targeting foldables. |
+| **Navigation** | Correct nav component for screen size (bar on mobile, rail on tablet, drawer on desktop). Responsive transitions. Hover states for pointer devices on large screens. |
 | **Motion** | Transitions use MD3 easing/duration tokens. Appropriate easing type for transition direction (enter/exit/persist). |
 | **Accessibility** | Color contrast meets 3:1 minimum (MD3 built-in). Proper ARIA labels. Keyboard navigation. Focus indicators. |
 | **Theming** | Theme is applied via CSS custom properties. Supports dark mode. Dynamic color ready (tokens not hardcoded). Component-level overrides use proper token names. |

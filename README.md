@@ -38,7 +38,7 @@ All design token values, component specs, layout breakpoints, color roles, typog
 
 - **[m3.material.io](https://m3.material.io/)** — Google's official Material Design 3 documentation site, browsed live using Claude Code's Chrome browser automation tools
 - **Claude's training data** — which includes publicly available Material Design documentation, `@material/web` API references, Flutter and Jetpack Compose documentation, and community guides published before the training cutoff
-- **[@material/web](https://github.com/nicegoodthings/material-web) source code** — the official web component library for MD3, used to verify element names, attributes, and import paths
+- **[@material/web](https://github.com/material-components/material-web) source code** — the official web component library for MD3, used to verify element names, attributes, and import paths
 
 ### Process
 
@@ -67,7 +67,7 @@ Copy the skill into your Claude Code skills directory:
 
 ```bash
 # Clone the repo
-git clone https://github.com/nicegoodthings/material-3-skill.git
+git clone https://github.com/hamen/material-3-skill.git
 
 # Copy to Claude Code skills directory
 cp -r material-3-skill ~/.claude/skills/material-3
